@@ -9,8 +9,12 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
-#include <queue>
+#include <chrono>
+#include <thread>
 using namespace std;
+
+auto TIME = chrono::steady_clock::now();
+vector<string> VISUAL_MAZE;
 
 enum Direction
 {
@@ -110,15 +114,37 @@ struct Maze
 
     void visualize(const Point &loc) const
     {
+        auto new_time = chrono::steady_clock::now();
+        auto diff = chrono::duration_cast<chrono::milliseconds>(chrono::milliseconds(33) - (new_time - TIME)).count();
+        if (diff > 0) {
+            this_thread::sleep_for(chrono::milliseconds(diff));
+        }
+        TIME = new_time;
+        system("clear");
+        int yinterval = 15;
+        int xinterval = 90;
         for (int i = 0; i < lines.size(); ++i)
         {
-            string line = lines[i];
-            if (i == loc.first)
+            if (i < (loc.first - yinterval) || i >= (loc.first + yinterval)) {
+                continue;
+            } 
+            for (int j = 0; j < lines[i].size(); ++j)
             {
-                line = string(line);
-                line[loc.second] = '@';
+                if (j < (loc.second - xinterval) || j >= (loc.second + xinterval))
+                {
+                    continue;
+                }
+                if (i == loc.first && j == loc.second)
+                {
+                    VISUAL_MAZE[i][j] = '.';
+                    cout << '@';
+                }
+                else
+                {
+                    cout << VISUAL_MAZE[i][j];
+                }
             }
-            cout << line << '\n';
+            cout << '\n';
         }
         cout << endl;
     }
@@ -173,7 +199,7 @@ public:
         assert(initialMoves.size() == 2);
 
         int stepsCount = 0;
-        char cell = ' ';
+        char cell = '.';
         Direction direction = *initialMoves.begin();
         while (cell != 'S')
         {
@@ -355,7 +381,7 @@ private:
             coveredPoints += 1;
         }
 
-        // maze.visualize(point);
+        maze.visualize(point);
 
         for (auto dir : ALL_DIRECTIONS)
         {
@@ -424,6 +450,11 @@ int main()
 {
     string filename = "input.txt";
     MazeRunner runner = initializeMaze(filename);
+
+    for (auto line : runner.maze.lines) {
+        VISUAL_MAZE.push_back(string(line.size(), ' '));
+    }
+
     int stepsCount = runner.traverseMaze();
     assert((stepsCount % 2) == 0);
     Maze maze = runner.maze;
@@ -463,7 +494,8 @@ int main()
         clusters.push_back(cluster);
         cout << "Found cluster with points: " << numPoints << endl;
 
-        for (auto point : cluster.visitedCells) {
+        for (auto point : cluster.visitedCells)
+        {
             pointsNotInCluster.erase(point);
         }
     }
