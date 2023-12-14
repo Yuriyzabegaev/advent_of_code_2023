@@ -16,21 +16,43 @@ using namespace std;
 
 regex pattern("[#?.]+|\\d+");
 
-long countPermutations(string line, vector<long>::iterator springsCountBegin, vector<long>::iterator springsCountEnd, string currentSolution, int oldSolutionOffset, const string &fullLine)
+class MyHash
 {
+
+public:
+    auto operator()(const pair<string, vector<long>> &pair) const -> size_t
+    {
+        size_t result = 0;
+        for (auto val : pair.second)
+        {
+            result |= val;
+            result <<= 1;
+        }
+        return hash<string>{}(pair.first) << 32 | result;
+    }
+};
+
+long countPermutations(string line, vector<long>::iterator springsCountBegin, vector<long>::iterator springsCountEnd, string currentSolution, int oldSolutionOffset, const string &fullLine, unordered_map<pair<string, vector<long>>, long, MyHash> &memory)
+{
+
     if (springsCountBegin == springsCountEnd)
     {
         // cout << currentSolution << endl;
-        
 
         for (auto c : line)
         {
-            if (c == '#') {
+            if (c == '#')
+            {
                 return 0;
             }
-            // assert(c != '#');
         }
         return 1;
+    }
+
+    vector<long> remainingSprings(springsCountBegin, springsCountEnd);
+    auto result = memory.find(make_pair(line, remainingSprings));
+    if (result != memory.end()) {
+        return result->second;
     }
 
     const long candidateGroup = *springsCountBegin;
@@ -78,9 +100,12 @@ long countPermutations(string line, vector<long>::iterator springsCountBegin, ve
         {
             continue;
         }
-        long linePermutations = countPermutations(currentSolution.substr(matchEnd, currentSolution.size()), springsCountBegin, springsCountEnd, currentSolution, matchEnd, fullLine);
+        long linePermutations = countPermutations(currentSolution.substr(matchEnd, currentSolution.size()), springsCountBegin, springsCountEnd, currentSolution, matchEnd, fullLine, memory);
         permutations += linePermutations;
     }
+
+    memory[make_pair(line, remainingSprings)] = permutations;
+
     return permutations;
 }
 
@@ -100,7 +125,17 @@ int main()
     {
         if (regex_search(line, match, pattern))
         {
-            springsMap.push_back(match[0].str());
+            string original = match[0].str();
+            string fiveTimes;
+            for (int i = 0; i < 5; ++i)
+            {
+                fiveTimes.append(original);
+                if (i != 4)
+                {
+                    fiveTimes.append("?");
+                }
+            }
+            springsMap.push_back(fiveTimes);
 
             vector<long> springsInLine;
             line = match.suffix().str();
@@ -109,15 +144,28 @@ int main()
                 springsInLine.push_back(stol(match[0].str()));
                 line = match.suffix().str();
             }
-            springsCount.push_back(springsInLine);
+            vector<long> springsInLineX5;
+            for (int i = 0; i < 5; ++i)
+            {
+                for (auto val : springsInLine)
+                {
+                    springsInLineX5.push_back(val);
+                }
+            }
+            springsCount.push_back(springsInLineX5);
         }
     }
+
+    unordered_map<pair<string, vector<long>>, long, MyHash> memory;
 
     long count = 0;
     for (int i = 0; i < springsMap.size(); ++i)
     {
-        auto res = countPermutations(springsMap[i], springsCount[i].begin(), springsCount[i].end(), springsMap[i], 0, springsMap[i]);
-        cout << springsMap[i] << " " << res << endl;
+        auto res = countPermutations(springsMap[i], springsCount[i].begin(), springsCount[i].end(), springsMap[i], 0, springsMap[i], memory);
+        // cout << springsMap[i] << " " << res << endl;
+        if (i % 10 == 0) {
+            cout << "Cache size: " << memory.size() << endl;
+        }
         count += res;
 
         assert(res > 0);
